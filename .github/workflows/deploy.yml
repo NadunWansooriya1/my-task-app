@@ -1,0 +1,66 @@
+name: Deploy to GCP VM
+
+on:
+  # This section configures the workflow to run on two conditions:
+
+  # 1. On every push to the 'main' branch
+  push:
+    branches:
+      - main
+
+  # 2. Allows you to run it manually from the GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and Deploy to GCP
+    runs-on: ubuntu-latest # Uses a fresh Linux server for the job
+
+    steps:
+      # Step 1: Checks out your repository's code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Configures SSH access to your VM
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          # Loads the private key from your GitHub Secrets
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_rsa
+          chmod 600 ~/.ssh/gcp_rsa
+          # Adds your VM's IP to the list of known hosts
+          ssh-keyscan -H "104.154.52.39" >> ~/.ssh/known_hosts
+        env:
+          # This uses the GitHub Secret you will create
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Step 3: Connects to your VM and runs the deployment commands
+      - name: Deploy to VM
+        env:
+          # These secrets are also needed for the SSH command
+          VM_USER: ${{ secrets.VM_USERNAME }}
+          VM_IP: "104.154.52.39"
+        run: |
+          echo "Connecting to VM..."
+          ssh -i ~/.ssh/gcp_rsa ${{ env.VM_USER }}@${{ env.VM_IP }} << 'ENDSSH'
+            # Fail the script if any command fails
+            set -e 
+          
+            echo "Navigating to app directory..."
+            cd ~/my-task-app
+          
+            echo "Pulling latest code from main..."
+            git pull origin main
+          
+            echo "Stopping old containers..."
+            docker compose down
+          
+            echo "Building and starting new containers..."
+            docker compose up -d --build
+          
+            echo "Cleaning up old Docker images..."
+            docker image prune -af
+          
+            echo "Deployment complete! Showing status:"
+            docker compose ps
+          ENDSSH

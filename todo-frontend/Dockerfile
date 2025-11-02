@@ -1,13 +1,33 @@
-# Build stage
-FROM node:18-alpine as build
+# Stage 1: Build the React app
+# This stage uses a Node.js image to build the static files
+FROM node:18-alpine AS builder
 WORKDIR /app
-COPY todo-frontend/package*.json ./
+
+# Copy package.json and install dependencies
+COPY package*.json ./
 RUN npm ci
-COPY todo-frontend/ .
+
+# Copy the rest of the source code and build the app
+COPY . .
+
+# This ARG is passed from your docker-compose.yml
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 RUN npm run build
 
-# Production stage
+# Stage 2: Serve with Nginx
+# This stage uses a lightweight Nginx image to serve the files
 FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-COPY todo-frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy the built static files from the builder stage
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Copy our custom Nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose the port Nginx listens on
 EXPOSE 80
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

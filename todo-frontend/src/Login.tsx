@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { API_ENDPOINTS } from './config'; // <-- 1. ADD THIS IMPORT
 
 interface LoginProps {
   onLoginSuccess: (token: string) => void;
@@ -27,14 +28,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axios.post('http://localhost:8080/api/auth/login', {
+      // 2. USE THE CONFIG VARIABLE INSTEAD OF A HARDCODED STRING
+      const { data } = await axios.post(`${API_ENDPOINTS.AUTH}/login`, {
         username,
         password,
       });
       toast.success('Welcome back!');
       onLoginSuccess(data);
     } catch (err: any) {
-      setError(err.response?.data ?? 'Invalid credentials');
+      setError(err.response?.data?.message ?? 'Invalid credentials');
     } finally {
       setLoading(false);
     }
