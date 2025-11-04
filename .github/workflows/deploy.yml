@@ -1,66 +1,144 @@
 name: Deploy to GCP VM
 
 on:
-  # This section configures the workflow to run on two conditions:
-
-  # 1. On every push to the 'main' branch
   push:
     branches:
       - main
-
-  # 2. Allows you to run it manually from the GitHub Actions tab
   workflow_dispatch:
 
 jobs:
   deploy:
     name: Build and Deploy to GCP
-    runs-on: ubuntu-latest # Uses a fresh Linux server for the job
+    runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checks out your repository's code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Configures SSH access to your VM
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Backend with Maven
+        run: |
+          cd todo-api
+          mvn clean package -DskipTests
+          echo "✅ Maven build completed"
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          export_default_credentials: true
+
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          # Loads the private key from your GitHub Secrets
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_rsa
-          chmod 600 ~/.ssh/gcp_rsa
-          # Adds your VM's IP to the list of known hosts
-          ssh-keyscan -H "104.154.52.39" >> ~/.ssh/known_hosts
-        env:
-          # This uses the GitHub Secret you will create
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_actions_rsa
+          chmod 600 ~/.ssh/github_actions_rsa
+          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
 
-      # Step 3: Connects to your VM and runs the deployment commands
       - name: Deploy to VM
         env:
-          # These secrets are also needed for the SSH command
           VM_USER: ${{ secrets.VM_USERNAME }}
-          VM_IP: "104.154.52.39"
+          VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo "Connecting to VM..."
-          ssh -i ~/.ssh/gcp_rsa ${{ env.VM_USER }}@${{ env.VM_IP }} << 'ENDSSH'
-            # Fail the script if any command fails
-            set -e 
+          ssh -i ~/.ssh/github_actions_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} << 'ENDSSH'
+            set -e
           
-            echo "Navigating to app directory..."
-            cd ~/my-task-app
+            echo "=== Starting deployment ==="
           
-            echo "Pulling latest code from main..."
-            git pull origin main
+            # Navigate to application directory
+            cd ~/my-task-app || exit 1
           
-            echo "Stopping old containers..."
+            # Pull latest changes
+            echo "📥 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+          
+            # Stop containers
+            echo "⏸️  Stopping containers..."
             docker compose down
           
-            echo "Building and starting new containers..."
-            docker compose up -d --build
-          
-            echo "Cleaning up old Docker images..."
+            # Remove old images
+            echo "🧹 Cleaning up old images..."
             docker image prune -af
           
-            echo "Deployment complete! Showing status:"
+            # Rebuild and start
+            echo "🏗️  Building and starting containers..."
+            docker compose up -d --build
+          
+            # Wait for services
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 45
+          
+            # Check status
+            echo "📊 Container status:"
             docker compose ps
+          
+            # Check backend health
+            echo "🏥 Checking backend health..."
+            for i in {1..10}; do
+              if curl -f http://localhost:8080/actuator/health 2>/dev/null; then
+                echo "✅ Backend is healthy!"
+                break
+              fi
+              echo "Waiting for backend... ($i/10)"
+              sleep 10
+            done
+          
+            # Show recent logs
+            echo "📝 Recent logs:"
+            docker compose logs --tail=50
+          
+            echo "=== Deployment completed successfully ==="
           ENDSSH
+
+      - name: Verify Deployment
+        env:
+          VM_IP: ${{ secrets.VM_IP }}
+        run: |
+          echo "🔍 Verifying deployment..."
+          sleep 15
+          
+          echo "Testing Backend Health..."
+          if curl -f http://${VM_IP}:8080/actuator/health; then
+            echo "✅ Backend health check passed"
+          else
+            echo "⚠️  Backend health check failed"
+          fi
+          
+          echo "Testing Frontend..."
+          if curl -f http://${VM_IP}:3000; then
+            echo "✅ Frontend is accessible"
+          else
+            echo "⚠️  Frontend health check failed"
+          fi
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Deployment Successful!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🌐 Application URLs:"
+          echo "   Frontend:  http://${{ secrets.VM_IP }}:3000"
+          echo "   Backend:   http://${{ secrets.VM_IP }}:8080"
+          echo "   Health:    http://${{ secrets.VM_IP }}:8080/actuator/health"
+          echo ""
+          echo "📊 Deployment Details:"
+          echo "   Branch:    main"
+          echo "   Commit:    ${{ github.sha }}"
+          echo "   Time:      $(date -u)"
+          echo ""
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment Failed!"
+          echo "Check the logs above for details."
