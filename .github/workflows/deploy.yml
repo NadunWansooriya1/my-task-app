@@ -48,97 +48,175 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
           ssh -i ~/.ssh/github_actions_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} << 'ENDSSH'
-            set -e
+            set -ex
           
-            echo "=== Starting deployment ==="
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🚀 Starting Deployment"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
             # Navigate to application directory
-            cd ~/my-task-app || exit 1
+            cd ~/my-task-app || { echo "❌ Failed to cd to my-task-app"; exit 1; }
           
-            # Pull latest changes
-            echo "📥 Pulling latest code..."
-            git fetch origin main
+            # Show current state
+            echo ""
+            echo "📍 Current commit on VM:"
+            git log -1 --pretty=format:"%h - %s (%cr)" --abbrev-commit
+            echo ""
+          
+            # Ensure we're on main branch
+            echo ""
+            echo "🔀 Ensuring we're on main branch..."
+            git checkout main
+          
+            # Force pull latest changes
+            echo ""
+            echo "📥 Fetching latest code from GitHub..."
+            git fetch --all --prune
+          
+            echo ""
+            echo "📥 Resetting to latest main branch..."
             git reset --hard origin/main
+            git clean -fd
+          
+            # Verify update
+            echo ""
+            echo "✅ Updated to commit:"
+            git log -1 --pretty=format:"%h - %s (%cr)" --abbrev-commit
+            echo ""
           
             # Stop containers
-            echo "⏸️  Stopping containers..."
-            docker compose down
+            echo ""
+            echo "⏸️  Stopping all containers..."
+            docker compose down || true
           
-            # Remove old images
-            echo "🧹 Cleaning up old images..."
-            docker image prune -af
+            # Remove old images to force rebuild
+            echo ""
+            echo "🧹 Cleaning up old Docker images..."
+            docker image prune -af || true
           
-            # Rebuild and start
+            # Rebuild and start containers
+            echo ""
             echo "🏗️  Building and starting containers..."
+            echo "   (This will take 2-3 minutes...)"
             docker compose up -d --build
           
-            # Wait for services
-            echo "⏳ Waiting for services to be healthy..."
-            sleep 45
+            # Wait for services to start
+            echo ""
+            echo "⏳ Waiting for services to initialize..."
+            sleep 60
           
-            # Check status
+            # Check container status
+            echo ""
             echo "📊 Container status:"
             docker compose ps
           
             # Check backend health
+            echo ""
             echo "🏥 Checking backend health..."
-            for i in {1..10}; do
+            BACKEND_HEALTHY=false
+            for i in {1..15}; do
               if curl -f http://localhost:8080/actuator/health 2>/dev/null; then
                 echo "✅ Backend is healthy!"
+                BACKEND_HEALTHY=true
                 break
               fi
-              echo "Waiting for backend... ($i/10)"
+              echo "   Waiting for backend... ($i/15)"
               sleep 10
             done
           
-            # Show recent logs
-            echo "📝 Recent logs:"
-            docker compose logs --tail=50
+            if [ "$BACKEND_HEALTHY" = false ]; then
+              echo "⚠️  Warning: Backend health check did not pass"
+              echo "   Showing backend logs:"
+              docker compose logs --tail=30 backend
+            fi
           
-            echo "=== Deployment completed successfully ==="
+            # Show brief logs
+            echo ""
+            echo "📝 Recent container logs:"
+            docker compose logs --tail=20
+          
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✅ Deployment completed successfully!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           ENDSSH
 
       - name: Verify Deployment
         env:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo "🔍 Verifying deployment..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 Verifying Deployment"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          # Wait a bit for services to stabilize
+          echo "⏳ Waiting 15 seconds for services to stabilize..."
           sleep 15
           
-          echo "Testing Backend Health..."
-          if curl -f http://${VM_IP}:8080/actuator/health; then
+          echo ""
+          echo "🏥 Testing Backend Health Endpoint..."
+          if curl -f -s http://${VM_IP}:8080/actuator/health | grep -q "UP"; then
             echo "✅ Backend health check passed"
           else
             echo "⚠️  Backend health check failed"
+            exit 1
           fi
           
-          echo "Testing Frontend..."
-          if curl -f http://${VM_IP}:3000; then
+          echo ""
+          echo "🌐 Testing Frontend..."
+          if curl -f -s -o /dev/null -w "%{http_code}" http://${VM_IP}:3000 | grep -q "200"; then
             echo "✅ Frontend is accessible"
           else
-            echo "⚠️  Frontend health check failed"
+            echo "⚠️  Frontend is not accessible"
+            exit 1
           fi
 
-      - name: Notify on Success
+      - name: Deployment Summary
         if: success()
+        env:
+          VM_IP: ${{ secrets.VM_IP }}
         run: |
+          echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Deployment Successful!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           echo "🌐 Application URLs:"
-          echo "   Frontend:  http://${{ secrets.VM_IP }}:3000"
-          echo "   Backend:   http://${{ secrets.VM_IP }}:8080"
-          echo "   Health:    http://${{ secrets.VM_IP }}:8080/actuator/health"
+          echo "   Frontend:    http://${VM_IP}:3000"
+          echo "   Backend:     http://${VM_IP}:8080"
+          echo "   Health:      http://${VM_IP}:8080/actuator/health"
+          echo "   API Docs:    http://${VM_IP}:8080/swagger-ui.html"
           echo ""
           echo "📊 Deployment Details:"
-          echo "   Branch:    main"
-          echo "   Commit:    ${{ github.sha }}"
-          echo "   Time:      $(date -u)"
+          echo "   Repository:  ${{ github.repository }}"
+          echo "   Branch:      ${{ github.ref_name }}"
+          echo "   Commit:      ${{ github.sha }}"
+          echo "   Author:      ${{ github.actor }}"
+          echo "   Time:        $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo ""
+          echo "🎉 Your application is live and ready to use!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: Notify on Failure
+      - name: Deployment Failed
         if: failure()
         run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "❌ Deployment Failed!"
-          echo "Check the logs above for details."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🔍 Please check the logs above for error details."
+          echo ""
+          echo "💡 Common issues:"
+          echo "   • SSH connection failed"
+          echo "   • Git pull failed"
+          echo "   • Docker build failed"
+          echo "   • Services didn't start properly"
+          echo ""
+          echo "📝 Next steps:"
+          echo "   1. Check the failed step logs above"
+          echo "   2. SSH into your VM and check manually"
+          echo "   3. Run: docker compose logs"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
