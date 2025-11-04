@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Build and Deploy to GCP
+    name: Build and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -22,93 +22,18 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build Backend with Maven
+      - name: Build Backend
         run: |
           cd todo-api
           mvn clean package -DskipTests
-          echo "Maven build completed"
+          echo "✅ Maven build completed"
 
-      - name: Configure SSH
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_rsa
-          chmod 600 ~/.ssh/gcp_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/vm_key
+          chmod 600 ~/.ssh/vm_key
           ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
-
-      - name: Create Deployment Script on VM
-        env:
-          VM_USER: ${{ secrets.VM_USERNAME }}
-          VM_IP: ${{ secrets.VM_IP }}
-        run: |
-          ssh -i ~/.ssh/gcp_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} 'cat > ~/my-task-app/deploy.sh' << 'SCRIPT_EOF'
-          #!/bin/bash
-          set -ex
-          
-          echo "=========================================="
-          echo "Starting Deployment"
-          echo "=========================================="
-          
-          cd ~/my-task-app || exit 1
-          
-          echo ""
-          echo "Current commit:"
-          git log -1 --oneline
-          
-          echo ""
-          echo "Ensuring on main branch..."
-          git checkout main
-          
-          echo ""
-          echo "Fetching latest code..."
-          git fetch --all --prune
-          
-          echo ""
-          echo "Resetting to latest main..."
-          git reset --hard origin/main
-          git clean -fd
-          
-          echo ""
-          echo "Updated to commit:"
-          git log -1 --oneline
-          
-          echo ""
-          echo "Stopping containers..."
-          docker compose down || true
-          
-          echo ""
-          echo "Cleaning old images..."
-          docker image prune -af || true
-          
-          echo ""
-          echo "Building and starting containers..."
-          docker compose up -d --build
-          
-          echo ""
-          echo "Waiting 90 seconds for startup..."
-          sleep 90
-          
-          echo ""
-          echo "Container status:"
-          docker compose ps
-          
-          echo ""
-          echo "Checking backend health..."
-          for i in {1..20}; do
-            if curl -f http://localhost:8080/actuator/health 2>/dev/null | grep -q "UP"; then
-              echo "Backend is healthy!"
-              break
-            fi
-            echo "Waiting for backend... ($i/20)"
-            sleep 15
-          done
-          
-          echo ""
-          echo "=========================================="
-          echo "Deployment completed!"
-          echo "=========================================="
-          SCRIPT_EOF
-          
-          ssh -i ~/.ssh/gcp_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} 'chmod +x ~/my-task-app/deploy.sh'
 
       - name: Deploy to VM
         env:
@@ -116,43 +41,35 @@ jobs:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
           echo "=========================================="
-          echo "Deploying to VM at ${VM_IP}"
+          echo "🚀 Deploying to $VM_IP"
           echo "=========================================="
           
-          ssh -i ~/.ssh/gcp_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} 'bash ~/my-task-app/deploy.sh'
-          
-          echo "=========================================="
-          echo "Deployment completed successfully"
-          echo "=========================================="
+          # Run deployment script on VM
+          ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no $VM_USER@$VM_IP 'bash -s' < ~/work/my-task-app/my-task-app/deploy.sh || \
+          ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no $VM_USER@$VM_IP 'bash ~/my-task-app/deploy.sh'
 
       - name: Verify Deployment
-        continue-on-error: true
         env:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo "Waiting 2 minutes for services..."
+          echo "⏳ Waiting 2 minutes for services to stabilize..."
           sleep 120
           
-          echo "Testing backend..."
-          curl -f http://${VM_IP}:8080/actuator/health || echo "Backend check failed"
-          
-          echo "Testing frontend..."
-          curl -f -o /dev/null http://${VM_IP}:3000 || echo "Frontend check failed"
+          echo "🔍 Testing endpoints..."
+          curl -f http://$VM_IP:8080/actuator/health && echo "✅ Backend OK" || echo "⚠️ Backend check failed"
+          curl -f http://$VM_IP:3000 && echo "✅ Frontend OK" || echo "⚠️ Frontend check failed"
 
-      - name: Deployment Summary
+      - name: Summary
         if: always()
         env:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo "=========================================="
-          echo "Deployment Summary"
-          echo "=========================================="
           echo ""
-          echo "Application URLs:"
-          echo "  Frontend: http://${VM_IP}:3000"
-          echo "  Backend:  http://${VM_IP}:8080"
-          echo "  Health:   http://${VM_IP}:8080/actuator/health"
-          echo ""
-          echo "Commit: ${{ github.sha }}"
-          echo "Author: ${{ github.actor }}"
+          echo "=========================================="
+          echo "📊 Deployment Summary"
+          echo "=========================================="
+          echo "Frontend: http://$VM_IP:3000"
+          echo "Backend:  http://$VM_IP:8080"
+          echo "Commit:   ${{ github.sha }}"
+          echo "Author:   ${{ github.actor }}"
           echo "=========================================="
