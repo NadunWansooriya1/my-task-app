@@ -110,7 +110,7 @@ const App: React.FC = () => {
                     <MenuIcon />
                   </IconButton>
                   <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-                    My Daily Task2
+                    My Daily Tasks
                   </Typography>
                   <IconButton color="inherit" onClick={handleRefresh}>
                     <RefreshIcon />
