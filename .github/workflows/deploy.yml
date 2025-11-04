@@ -26,20 +26,13 @@ jobs:
         run: |
           cd todo-api
           mvn clean package -DskipTests
-          echo "✅ Maven build completed"
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          export_default_credentials: true
+          echo "Maven build completed"
 
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_actions_rsa
-          chmod 600 ~/.ssh/github_actions_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/gcp_rsa
+          chmod 600 ~/.ssh/gcp_rsa
           ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
 
       - name: Deploy to VM
@@ -47,179 +40,44 @@ jobs:
           VM_USER: ${{ secrets.VM_USERNAME }}
           VM_IP: ${{ secrets.VM_IP }}
         run: |
-          ssh -i ~/.ssh/github_actions_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} << 'ENDSSH'
-            set -e
+          echo "=========================================="
+          echo "Deploying to VM at ${VM_IP}"
+          echo "=========================================="
           
-            echo "=========================================="
-            echo "Starting Deployment"
-            echo "=========================================="
+          ssh -i ~/.ssh/gcp_rsa -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} 'bash ~/my-task-app/deploy.sh'
           
-            # Navigate to application directory
-            cd ~/my-task-app || { echo "Failed to cd to my-task-app"; exit 1; }
-          
-            # Show current state
-            echo ""
-            echo "Current commit on VM:"
-            git log -1 --oneline
-          
-            # Ensure we're on main branch
-            echo ""
-            echo "Ensuring we're on main branch..."
-            git checkout main
-          
-            # Force pull latest changes
-            echo ""
-            echo "Fetching latest code from GitHub..."
-            git fetch --all --prune
-          
-            echo ""
-            echo "Resetting to latest main branch..."
-            git reset --hard origin/main
-            git clean -fd
-          
-            # Verify update
-            echo ""
-            echo "Updated to commit:"
-            git log -1 --oneline
-          
-            # Stop containers
-            echo ""
-            echo "Stopping all containers..."
-            docker compose down || true
-          
-            # Remove old images
-            echo ""
-            echo "Cleaning up old Docker images..."
-            docker image prune -af || true
-          
-            # Rebuild and start containers
-            echo ""
-            echo "Building and starting containers..."
-            echo "(This will take 2-3 minutes...)"
-            docker compose up -d --build
-          
-            # Wait for services to start
-            echo ""
-            echo "Waiting 90 seconds for services to initialize..."
-            sleep 90
-          
-            # Check container status
-            echo ""
-            echo "Container status:"
-            docker compose ps
-          
-            # Check backend health with retries
-            echo ""
-            echo "Checking backend health..."
-            BACKEND_HEALTHY=false
-            for i in {1..20}; do
-              if curl -f http://localhost:8080/actuator/health 2>/dev/null | grep -q "UP"; then
-                echo "Backend is healthy!"
-                BACKEND_HEALTHY=true
-                break
-              fi
-              echo "Waiting for backend... (attempt $i/20)"
-              sleep 15
-            done
-          
-            if [ "$BACKEND_HEALTHY" = false ]; then
-              echo "Warning: Backend health check did not pass within 5 minutes"
-              echo "Backend may still be starting. Showing recent logs:"
-              docker compose logs --tail=30 backend
-              echo ""
-              echo "Deployment completed but backend is not ready yet."
-              echo "Please wait 2-3 more minutes and check manually."
-            else
-              echo "Backend is running and healthy!"
-            fi
-          
-            echo ""
-            echo "=========================================="
-            echo "Deployment completed successfully!"
-            echo "=========================================="
-          ENDSSH
+          echo "=========================================="
+          echo "Deployment completed successfully"
+          echo "=========================================="
 
       - name: Verify Deployment
         continue-on-error: true
         env:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo "=========================================="
-          echo "Verifying Deployment"
-          echo "=========================================="
-          echo ""
-          
-          # Wait for services to stabilize
-          echo "Waiting 2 minutes for services to stabilize..."
+          echo "Waiting 2 minutes for services..."
           sleep 120
           
-          echo ""
-          echo "Testing Backend Health Endpoint..."
-          BACKEND_HEALTHY=false
-          for i in {1..10}; do
-            if curl -f -s http://${VM_IP}:8080/actuator/health 2>/dev/null | grep -q "UP"; then
-              echo "Backend health check passed!"
-              BACKEND_HEALTHY=true
-              break
-            fi
-            echo "Attempt $i/10 - Waiting for backend..."
-            sleep 10
-          done
+          echo "Testing backend..."
+          curl -f http://${VM_IP}:8080/actuator/health || echo "Backend check failed"
           
-          if [ "$BACKEND_HEALTHY" = false ]; then
-            echo "Backend health check did not pass"
-            echo "This is often normal - backend may need more time to start"
-          fi
-          
-          echo ""
-          echo "Testing Frontend..."
-          FRONTEND_STATUS=$(curl -f -s -o /dev/null -w "%{http_code}" http://${VM_IP}:3000 2>/dev/null || echo "000")
-          
-          if [ "$FRONTEND_STATUS" = "200" ]; then
-            echo "Frontend is accessible (HTTP $FRONTEND_STATUS)"
-          else
-            echo "Frontend check returned HTTP $FRONTEND_STATUS"
-          fi
-          
-          echo ""
-          echo "Note: Even if checks show warnings, deployment may be successful."
-          echo "Services can take 3-5 minutes to fully start. Check manually if needed."
+          echo "Testing frontend..."
+          curl -f -o /dev/null http://${VM_IP}:3000 || echo "Frontend check failed"
 
       - name: Deployment Summary
         if: always()
         env:
           VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo ""
           echo "=========================================="
           echo "Deployment Summary"
           echo "=========================================="
           echo ""
           echo "Application URLs:"
-          echo "  Frontend:    http://${VM_IP}:3000"
-          echo "  Backend:     http://${VM_IP}:8080"
-          echo "  Health:      http://${VM_IP}:8080/actuator/health"
-          echo "  API Docs:    http://${VM_IP}:8080/swagger-ui.html"
+          echo "  Frontend: http://${VM_IP}:3000"
+          echo "  Backend:  http://${VM_IP}:8080"
+          echo "  Health:   http://${VM_IP}:8080/actuator/health"
           echo ""
-          echo "Deployment Details:"
-          echo "  Repository:  ${{ github.repository }}"
-          echo "  Branch:      ${{ github.ref_name }}"
-          echo "  Commit:      ${{ github.sha }}"
-          echo "  Commit Msg:  ${{ github.event.head_commit.message }}"
-          echo "  Author:      ${{ github.actor }}"
-          echo "  Time:        $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          echo ""
-          if [ "${{ job.status }}" = "success" ]; then
-            echo "Status: Deployment completed successfully!"
-          else
-            echo "Status: Deployment completed with warnings."
-            echo ""
-            echo "Troubleshooting steps:"
-            echo "  1. Wait 3-5 minutes for services to fully start"
-            echo "  2. SSH into VM: ssh ${VM_IP}"
-            echo "  3. Check logs: docker compose logs"
-            echo "  4. Check status: docker compose ps"
-            echo "  5. Manual health check: curl http://localhost:8080/actuator/health"
-          fi
-          echo ""
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
           echo "=========================================="
