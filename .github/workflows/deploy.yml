@@ -2,74 +2,77 @@ name: Deploy to GCP VM
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
+
+env:
+  VM_USER: nadun_wansooriya
+  VM_HOST: 104.154.52.39
+  APP_DIR: /home/nadun_wansooriya/my-task-app
 
 jobs:
   deploy:
-    name: Build and Deploy
+    name: Deploy to VM
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Build Backend
-        run: |
-          cd todo-api
-          mvn clean package -DskipTests
-          echo "✅ Maven build completed"
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/vm_key
-          chmod 600 ~/.ssh/vm_key
-          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to VM
-        env:
-          VM_USER: ${{ secrets.VM_USERNAME }}
-          VM_IP: ${{ secrets.VM_IP }}
         run: |
-          echo "=========================================="
-          echo "🚀 Deploying to $VM_IP"
-          echo "=========================================="
+          ssh -o StrictHostKeyChecking=no ${{ env.VM_USER }}@${{ env.VM_HOST }} << 'ENDSSH'
+            set -e
           
-          # Run deployment script on VM
-          ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no $VM_USER@$VM_IP 'bash -s' < ~/work/my-task-app/my-task-app/deploy.sh || \
-          ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no $VM_USER@$VM_IP 'bash ~/my-task-app/deploy.sh'
-
-      - name: Verify Deployment
-        env:
-          VM_IP: ${{ secrets.VM_IP }}
-        run: |
-          echo "⏳ Waiting 2 minutes for services to stabilize..."
-          sleep 120
+            echo "==== Starting Deployment ===="
           
-          echo "🔍 Testing endpoints..."
-          curl -f http://$VM_IP:8080/actuator/health && echo "✅ Backend OK" || echo "⚠️ Backend check failed"
-          curl -f http://$VM_IP:3000 && echo "✅ Frontend OK" || echo "⚠️ Frontend check failed"
+            # Navigate to app directory
+            cd $HOME/my-task-app
+          
+            # Pull latest code
+            echo "Pulling latest code..."
+            git pull origin main
+          
+            # Stop containers
+            echo "Stopping containers..."
+            docker compose down
+          
+            # Remove old images
+            echo "Removing old images..."
+            docker rmi my-task-app-backend my-task-app-frontend 2>/dev/null || true
+          
+            # Rebuild and start
+            echo "Building and starting containers..."
+            docker compose up -d --build
+          
+            # Wait for services to be healthy
+            echo "Waiting for services to start..."
+            sleep 45
+          
+            # Check status
+            echo "Checking container status..."
+            docker compose ps
+          
+            # Verify backend
+            echo "Verifying backend..."
+            curl -f http://localhost:8080/actuator/health || echo "Backend health check failed!"
+          
+            # Clean up old images
+            echo "Cleaning up..."
+            docker image prune -f
+          
+            echo "==== Deployment Complete ===="
+          ENDSSH
 
-      - name: Summary
-        if: always()
-        env:
-          VM_IP: ${{ secrets.VM_IP }}
+      - name: Deployment Status
         run: |
-          echo ""
-          echo "=========================================="
-          echo "📊 Deployment Summary"
-          echo "=========================================="
-          echo "Frontend: http://$VM_IP:3000"
-          echo "Backend:  http://$VM_IP:8080"
-          echo "Commit:   ${{ github.sha }}"
-          echo "Author:   ${{ github.actor }}"
-          echo "=========================================="
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Frontend: http://${{ env.VM_HOST }}:3000"
+          echo "🔧 Backend: http://${{ env.VM_HOST }}:8080"
