@@ -58,7 +58,7 @@ services:
       dockerfile: Dockerfile
       args:
         # Passes the production API URL to the React build
-        REACT_APP_API_URL: http://104.154.52.39:8080
+        REACT_APP_API_URL: https://task-vm.nadunwansooriya.online
     container_name: frontend
     restart: always
     ports:
