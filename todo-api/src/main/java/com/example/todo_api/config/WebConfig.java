@@ -11,6 +11,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(
                         "https://task-vm.nadunwansooriya.online",
+                        "https://task-app-vm.nadunwansooriya.online",
                         "http://localhost:3000"       // For local testing
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
