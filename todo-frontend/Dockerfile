@@ -1,36 +1,36 @@
 # ==============================
-# Stage 1: Build the React app
+# Stage 1: Build React (Alpine = tiny)
 # ==============================
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 1. Copy only the lockfiles first → cache layer
+# ---- Cache npm install -------------------------------------------------
 COPY package*.json ./
-# Install **all** dependencies (dev + prod) – required for `npm run build`
-RUN npm ci
+# Install *everything* (dev + prod) – needed for `npm run build`
+RUN npm ci --loglevel=error
 
-# 2. Copy source code
+# ---- Copy source (after npm ci → cache reuse) -------------------------
 COPY . .
 
-# 3. Pass the API base URL from docker‑compose (optional but handy)
+# ---- Build argument (set in docker‑compose) ---------------------------
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 
-# 4. Build the production bundle
+# ---- Build production bundle -------------------------------------------
 RUN npm run build
 
 # ==============================
-# Stage 2: Serve with Nginx
+# Stage 2: Serve with Nginx (Alpine)
 # ==============================
 FROM nginx:alpine
 
 # Remove default config
 RUN rm -f /etc/nginx/conf.d/default.conf
 
-# Copy our secure Nginx config
+# Copy secure Nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy the built static files
+# Copy only the built static files
 COPY --from=builder /app/build /usr/share/nginx/html
 
 # Run as non‑root
