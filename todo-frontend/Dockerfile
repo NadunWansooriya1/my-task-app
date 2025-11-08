@@ -4,16 +4,17 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install build tools (only needed if you have native deps)
+# Install build tools (only if you have native deps like sharp)
 RUN apk add --no-cache python3 make g++
 
 # Copy lockfiles
 COPY package*.json ./
 
-# Show real error if npm ci fails
+# Install + show full log on failure
 RUN npm ci --loglevel=error || \
     (echo "=== NPM CI FAILED ===" && \
-     find /root/.npm/_logs -name "*.log" -exec cat {} \; && \
+     echo "=== FULL NPM LOG ===" && \
+     cat /root/.npm/_logs/*-debug-*.log 2>/dev/null || echo "No log found" && \
      exit 1)
 
 # Copy source
