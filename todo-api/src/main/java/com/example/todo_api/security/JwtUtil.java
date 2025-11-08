@@ -22,14 +22,12 @@ public class JwtUtil {
 
     @PostConstruct
     public void init() {
-        // Ensure minimum 256-bit key
         if (secret.length() < 32) {
             throw new IllegalArgumentException("JWT secret must be at least 256 bits (32 chars)");
         }
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    // Extract all claims
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
@@ -38,13 +36,12 @@ public class JwtUtil {
                 .getPayload();
     }
 
-    // Generic claim extractor
-    public <T> T提取Claim(String token, Function<Claims, T> claimsResolver) {
+    // FIXED: Valid method name
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    // Public helpers
     public String getUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -69,7 +66,7 @@ public class JwtUtil {
         return Jwts.builder()
                 .subject(username)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 86_400_000)) // 24h
+                .expiration(new Date(System.currentTimeMillis() + 86_400_000))
                 .signWith(key)
                 .compact();
     }
