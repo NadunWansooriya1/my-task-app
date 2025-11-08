@@ -4,8 +4,6 @@ import com.example.todo_api.model.Task;
 import com.example.todo_api.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
-// Import the new annotation
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -18,61 +16,33 @@ public class TaskController {
     @Autowired
     private TaskRepository repository;
 
+    // ... (getAll, create, update, delete, analytics methods are unchanged) ...
     @GetMapping
-    public List<Task> getAll(
-            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
-        // Use new repository method
-        return repository.findByUserIdAndTaskDate(username, date);
+    public List<Task> getAll(@RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return repository.findByTaskDate(date);
     }
 
     @PostMapping
-    public Task create(
-            @RequestBody Task task,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
-
-        task.setUserId(username); // <-- Set user from token
-
+    public Task create(@RequestBody Task task) {
+        task.setUserId("admin");
         if (task.getTaskDate() == null) {
             task.setTaskDate(LocalDate.now());
-        }
-        // Set defaults for new fields if they are null
-        if (task.getPriority() == null) {
-            task.setPriority("medium");
-        }
-        if (task.getCategory() == null) {
-            task.setCategory("Other");
         }
         return repository.save(task);
     }
 
     @PutMapping("/{id}")
-    public Task update(
-            @PathVariable Long id,
-            @RequestBody Task updatedTask,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
-
-        // Find task and ensure it belongs to the logged-in user
-        Task task = repository.findByIdAndUserId(id, username)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
-
-        // Update title
+    public Task update(@PathVariable Long id, @RequestBody Task updatedTask) {
+        Task task = repository.findById(id).orElseThrow(() -> new RuntimeException("Task not found"));
+        // This logic is designed to update only fields that are provided
+        // We'll update the frontend to match this
         if (updatedTask.getTitle() != null) {
             task.setTitle(updatedTask.getTitle());
         }
-        // Update description
         if (updatedTask.getDescription() != null) {
             task.setDescription(updatedTask.getDescription());
         }
-        // Update priority
-        if (updatedTask.getPriority() != null) {
-            task.setPriority(updatedTask.getPriority());
-        }
-        // Update category
-        if (updatedTask.getCategory() != null) {
-            task.setCategory(updatedTask.getCategory());
-        }
-        // Update completed status
+        // Special check for boolean
         if (updatedTask.isCompleted() != task.isCompleted()) {
             task.setCompleted(updatedTask.isCompleted());
         }
@@ -80,31 +50,20 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
-    public void delete(
-            @PathVariable Long id,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
-
-        // Find task to ensure user can delete it
-        Task task = repository.findByIdAndUserId(id, username)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
-
-        repository.delete(task);
+    public void delete(@PathVariable Long id) {
+        repository.deleteById(id);
     }
 
     @GetMapping("/analytics")
-    public Map<String, Long> analytics(
-            @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
-
-        // Get analytics only for the logged-in user
-        long total = repository.countByUserIdAndTaskDate(username, date);
-        long completed = repository.countByUserIdAndTaskDateAndCompleted(username, date, true);
+    public Map<String, Long> analytics(@RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        long total = repository.countByTaskDate(date);
+        long completed = repository.countByTaskDateAndCompleted(date, true);
         return Map.of("total", total, "completed", completed, "pending", total - completed);
     }
 
+    // *** ADD THIS NEW ENDPOINT ***
     @GetMapping("/pending-dates")
-    public List<LocalDate> getPendingDates(@AuthenticationPrincipal String username) { // <-- Get logged-in user
-        // Get pending dates only for the logged-in user
-        return repository.findPendingTaskDatesByUserId(username);
+    public List<LocalDate> getPendingDates() {
+        return repository.findPendingTaskDates();
     }
 }
