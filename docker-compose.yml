@@ -1,76 +1,86 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  # 1. PostgreSQL Database
+  # ──────────────────────────────────────
+  # 1. PostgreSQL (Healthy & Persistent)
+  # ──────────────────────────────────────
   postgres:
-    image: postgres:15-alpine
-    container_name: postgres
+    image: postgres:16-alpine
+    container_name: postgres-db
     restart: always
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: taskdb
     ports:
-      - "5432:5432" # Exposes DB to host (for debugging)
+      - "5432:5432"  # Only for local dev/debug
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d taskdb"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - app-network
 
-  # 2. Spring Boot Backend
+  # ──────────────────────────────────────
+  # 2. Spring Boot Backend (JWT + Actuator)
+  # ──────────────────────────────────────
   backend:
     build:
-      context: ./todo-api  # Path to your Spring Boot app
+      context: ./todo-api
       dockerfile: Dockerfile
-    container_name: backend
+    container_name: todo-api
     restart: always
     ports:
-      - "8080:8080" # Exposes Spring Boot port
+      - "8080:8080"
     environment:
-      # Connects to the 'postgres' service
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taskdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
-      JWT_SECRET: "your-super-strong-production-secret-key-change-this"
+      # NEVER hardcode in prod — use secrets or .env
+      JWT_SECRET: ${JWT_SECRET:-your-super-secure-256-bit-key-change-in-prod-123}
     depends_on:
       postgres:
-        condition: service_healthy # Waits for DB to be ready
-    networks:
-      - app-network
+        condition: service_healthy
     healthcheck:
-      # Uses the Actuator endpoint you added
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 60s
+    networks:
+      - app-network
 
-  # 3. React Frontend
+  # ──────────────────────────────────────
+  # 3. React Frontend (Nginx + HTTPS-ready)
+  # ──────────────────────────────────────
   frontend:
     build:
-      context: ./todo-frontend # Path to your React app
+      context: ./todo-frontend
       dockerfile: Dockerfile
       args:
-        # Passes the production API URL to the React build
-        REACT_APP_API_URL: https://task-vm.nadunwansooriya.online
-    container_name: frontend
+        REACT_APP_API_URL: /api
+    container_name: todo-frontend
     restart: always
     ports:
-      - "3000:80" # User visits port 3000, Nginx serves on port 80
+      - "3000:80"
     depends_on:
       - backend
     networks:
       - app-network
 
+# ──────────────────────────────────────
+# Volumes & Networks
+# ──────────────────────────────────────
 volumes:
-  postgres_data: # This volume persists your database data
+  postgres_data:
+    driver: local
 
 networks:
   app-network:
     driver: bridge
+    name: todo-app-network

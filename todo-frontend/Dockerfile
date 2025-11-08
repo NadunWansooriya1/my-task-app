@@ -1,35 +1,36 @@
-# Stage 1: Build the React app
-# This stage uses a Node.js image to build the static files
-FROM node:18-alpine AS builder
+# ──────────────────────
+# Stage 1: Build React
+# ──────────────────────
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package.json and install dependencies
+# Install only production deps
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --only=production
 
-# Copy the rest of the source code and build the app
+# Copy source + build
 COPY . .
-
-# This ARG is passed from your docker-compose.yml
 ARG REACT_APP_API_URL
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
-
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 RUN npm run build
 
+# ──────────────────────
 # Stage 2: Serve with Nginx
-# This stage uses a lightweight Nginx image to serve the files
+# ──────────────────────
 FROM nginx:alpine
 
-# Copy the built static files from the builder stage
-COPY --from=builder /app/build /usr/share/nginx/html
-# Change ownership of the web files to the nginx user
-RUN chown -R nginx:nginx /usr/share/nginx/html
+# Remove default config
+RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy our custom Nginx config
+# Copy custom secure config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose the port Nginx listens on
+# Copy build files
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Security: non-root user
+USER nginx
+
 EXPOSE 80
 
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
