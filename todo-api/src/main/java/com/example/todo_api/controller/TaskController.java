@@ -1,48 +1,60 @@
+// src/main/java/com/example/todo_api/controller/TaskController.java
 package com.example.todo_api.controller;
 
 import com.example.todo_api.model.Task;
 import com.example.todo_api.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
-// Import the new annotation
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tasks")
 public class TaskController {
+
     @Autowired
     private TaskRepository repository;
 
     @GetMapping
     public List<Task> getAll(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
+            @AuthenticationPrincipal String username) {
 
-        return repository.findByUserIdAndTaskDate(username, date);
+        if (username == null) {
+            return Collections.emptyList(); // Safety
+        }
+        List<Task> tasks = repository.findByUserIdAndTaskDate(username, date);
+        return tasks != null ? tasks : Collections.emptyList();
     }
 
     @PostMapping
     public Task create(
             @RequestBody Task task,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
+            @AuthenticationPrincipal String username) {
 
-        task.setUserId(username); // <-- Set user from token
+        if (username == null) {
+            throw new RuntimeException("Unauthorized");
+        }
 
+        task.setUserId(username);
         if (task.getTaskDate() == null) {
             task.setTaskDate(LocalDate.now());
         }
-        // Set defaults for new fields if they are null
-        if (task.getPriority() == null) {
+        if (task.getPriority() == null || task.getPriority().isBlank()) {
             task.setPriority("medium");
         }
-        if (task.getCategory() == null) {
+        if (task.getCategory() == null || task.getCategory().isBlank()) {
             task.setCategory("Other");
         }
+        if (task.getTitle() == null || task.getTitle().trim().isEmpty()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+
         return repository.save(task);
     }
 
@@ -50,43 +62,43 @@ public class TaskController {
     public Task update(
             @PathVariable Long id,
             @RequestBody Task updatedTask,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
+            @AuthenticationPrincipal String username) {
 
-        // Find task and ensure it belongs to the logged-in user
-        Task task = repository.findByIdAndUserId(id, username)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
-
-        // Update title
-        if (updatedTask.getTitle() != null) {
-            task.setTitle(updatedTask.getTitle());
+        if (username == null) {
+            throw new RuntimeException("Unauthorized");
         }
-        // Update description
+
+        Task task = repository.findByIdAndUserId(id, username)
+                .orElseThrow(() -> new RuntimeException("Task not found or access denied"));
+
+        if (updatedTask.getTitle() != null && !updatedTask.getTitle().trim().isEmpty()) {
+            task.setTitle(updatedTask.getTitle().trim());
+        }
         if (updatedTask.getDescription() != null) {
             task.setDescription(updatedTask.getDescription());
         }
-        // Update priority
-        if (updatedTask.getPriority() != null) {
+        if (updatedTask.getPriority() != null && !updatedTask.getPriority().isBlank()) {
             task.setPriority(updatedTask.getPriority());
         }
-        // Update category
-        if (updatedTask.getCategory() != null) {
+        if (updatedTask.getCategory() != null && !updatedTask.getCategory().isBlank()) {
             task.setCategory(updatedTask.getCategory());
         }
-        // Update completed status
-        if (updatedTask.isCompleted() != task.isCompleted()) {
-            task.setCompleted(updatedTask.isCompleted());
-        }
+        task.setCompleted(updatedTask.isCompleted());
+
         return repository.save(task);
     }
 
     @DeleteMapping("/{id}")
     public void delete(
             @PathVariable Long id,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
+            @AuthenticationPrincipal String username) {
 
-        // Find task to ensure user can delete it
+        if (username == null) {
+            throw new RuntimeException("Unauthorized");
+        }
+
         Task task = repository.findByIdAndUserId(id, username)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new RuntimeException("Task not found or access denied"));
 
         repository.delete(task);
     }
@@ -94,17 +106,24 @@ public class TaskController {
     @GetMapping("/analytics")
     public Map<String, Long> analytics(
             @RequestParam("date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @AuthenticationPrincipal String username) { // <-- Get logged-in user
+            @AuthenticationPrincipal String username) {
 
-        // Get analytics only for the logged-in user
+        if (username == null) {
+            return Map.of("total", 0L, "completed", 0L, "pending", 0L);
+        }
+
         long total = repository.countByUserIdAndTaskDate(username, date);
         long completed = repository.countByUserIdAndTaskDateAndCompleted(username, date, true);
-        return Map.of("total", total, "completed", completed, "pending", total - completed);
+        long pending = total - completed;
+
+        return Map.of("total", total, "completed", completed, "pending", pending);
     }
 
     @GetMapping("/pending-dates")
-    public List<LocalDate> getPendingDates(@AuthenticationPrincipal String username) { // <-- Get logged-in user
-        // Get pending dates only for the logged-in user
+    public List<LocalDate> getPendingDates(@AuthenticationPrincipal String username) {
+        if (username == null) {
+            return Collections.emptyList();
+        }
         return repository.findPendingTaskDatesByUserId(username);
     }
 }
