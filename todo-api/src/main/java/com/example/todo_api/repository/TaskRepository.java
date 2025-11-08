@@ -10,7 +10,7 @@ import java.util.Optional; // <-- Make sure this is imported
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    // --- ADD THESE NEW METHODS ---
+    // --- NEW METHODS FOR MULTI-USER SUPPORT ---
 
     // Finds a single task by ID and Username (for update/delete)
     Optional<Task> findByIdAndUserId(Long id, String userId);
