@@ -6,25 +6,25 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional; // <-- Import this
+import java.util.Optional; // <-- Make sure this is imported
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    // --- NEW METHODS FOR MULTI-USER SUPPORT ---
+    // --- ADD THESE NEW METHODS ---
 
-    // Find a single task by ID and Username (for update/delete)
+    // Finds a single task by ID and Username (for update/delete)
     Optional<Task> findByIdAndUserId(Long id, String userId);
 
-    // Find all tasks for a specific user on a specific date
+    // Finds all tasks for a specific user on a specific date (This fixes your error)
     List<Task> findByUserIdAndTaskDate(String userId, LocalDate date);
 
-    // Get total count for a user on a specific date
+    // Gets total count for a user on a specific date
     long countByUserIdAndTaskDate(String userId, LocalDate date);
 
-    // Get completed count for a user on a specific date
+    // Gets completed count for a user on a specific date
     long countByUserIdAndTaskDateAndCompleted(String userId, LocalDate date, boolean completed);
 
-    // Get pending dates for a specific user
+    // Gets pending dates for a specific user
     @Query("SELECT DISTINCT t.taskDate FROM Task t WHERE t.userId = :userId AND t.completed = false ORDER BY t.taskDate ASC")
     List<LocalDate> findPendingTaskDatesByUserId(String userId);
 
