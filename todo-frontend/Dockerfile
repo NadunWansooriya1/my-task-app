@@ -22,6 +22,8 @@ FROM nginx:alpine
 
 # Copy the built static files from the builder stage
 COPY --from=builder /app/build /usr/share/nginx/html
+# Change ownership of the web files to the nginx user
+RUN chown -R nginx:nginx /usr/share/nginx/html
 
 # Copy our custom Nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
