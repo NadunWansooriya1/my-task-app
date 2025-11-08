@@ -15,7 +15,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // Finds a single task by ID and Username (for update/delete)
     Optional<Task> findByIdAndUserId(Long id, String userId);
 
-    // Finds all tasks for a specific user on a specific date (This fixes your error)
+    // Finds all tasks for a specific user on a specific date
     List<Task> findByUserIdAndTaskDate(String userId, LocalDate date);
 
     // Gets total count for a user on a specific date
