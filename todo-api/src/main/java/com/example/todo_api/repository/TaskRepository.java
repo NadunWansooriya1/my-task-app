@@ -2,25 +2,38 @@ package com.example.todo_api.repository;
 
 import com.example.todo_api.model.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query; // <-- 1. ADD THIS IMPORT
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional; // <-- Import this
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    // Finds all tasks for a specific date
+    // --- NEW METHODS FOR MULTI-USER SUPPORT ---
+
+    // Find a single task by ID and Username (for update/delete)
+    Optional<Task> findByIdAndUserId(Long id, String userId);
+
+    // Find all tasks for a specific user on a specific date
+    List<Task> findByUserIdAndTaskDate(String userId, LocalDate date);
+
+    // Get total count for a user on a specific date
+    long countByUserIdAndTaskDate(String userId, LocalDate date);
+
+    // Get completed count for a user on a specific date
+    long countByUserIdAndTaskDateAndCompleted(String userId, LocalDate date, boolean completed);
+
+    // Get pending dates for a specific user
+    @Query("SELECT DISTINCT t.taskDate FROM Task t WHERE t.userId = :userId AND t.completed = false ORDER BY t.taskDate ASC")
+    List<LocalDate> findPendingTaskDatesByUserId(String userId);
+
+
+    // --- Your old methods (can be kept or removed) ---
     List<Task> findByTaskDate(LocalDate date);
-
-    // Gets the total count for a specific date
     long countByTaskDate(LocalDate date);
-
-    // Gets the completed count for a specific date
     long countByTaskDateAndCompleted(LocalDate date, boolean completed);
 
-    // *** 2. ADD THIS NEW METHOD ***
-    // This query finds all unique dates that have tasks which are not completed,
-    // and returns them in ascending order.
     @Query("SELECT DISTINCT t.taskDate FROM Task t WHERE t.completed = false ORDER BY t.taskDate ASC")
     List<LocalDate> findPendingTaskDates();
 }

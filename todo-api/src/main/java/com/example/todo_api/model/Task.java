@@ -15,8 +15,13 @@ public class Task {
     private Long id;
     private String title;
     private boolean completed;
-    private String userId;
+    private String userId; // This will store the username (e.g., "admin")
     private LocalDate taskDate;
+
     @Column(length = 500) // Matches frontend maxLength
     private String description;
+
+    // --- NEW FIELDS ---
+    private String priority;
+    private String category;
 }
