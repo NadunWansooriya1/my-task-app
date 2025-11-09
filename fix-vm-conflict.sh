@@ -35,7 +35,7 @@ echo ""
 echo "✅ Repository reset to match GitHub"
 echo ""
 
-# Show current commit
+# Show current committ
 echo "📍 Current commit:"
 git log -1 --oneline
 echo ""
