@@ -2,33 +2,25 @@ package com.example.todo_api.controller;
 
 import com.example.todo_api.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-
-    private final JwtUtil jwtUtil;
-
-    public AuthController(JwtUtil jwtUtil) {
-        this.jwtUtil = jwtUtil;
-    }
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
-        String username = credentials.get("username");
-        String password = credentials.get("password");
-
-        // ---- DEMO ONLY ----
-        if ("admin".equals(username) && "pass".equals(password)) {
-            String token = jwtUtil.generateToken(username);
-            return ResponseEntity.ok(Map.of("token", token));
+    public String login(@RequestBody Map<String, String> credentials) {
+        // Demo: Hardcoded user
+        if ("admin".equals(credentials.get("username")) && "pass".equals(credentials.get("password"))) {
+            return jwtUtil.generateToken("admin");
         }
-        // -------------------
-
-        return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+        throw new RuntimeException("Invalid credentials");
     }
 }

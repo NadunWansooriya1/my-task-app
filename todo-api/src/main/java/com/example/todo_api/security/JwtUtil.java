@@ -1,10 +1,9 @@
-package com.example.todo_api.security;
+package com.example.todo_api.security; // Or your package name
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,31 +13,28 @@ import java.util.function.Function;
 
 @Component
 public class JwtUtil {
-
     @Value("${jwt.secret}")
     private String secret;
 
     private SecretKey key;
 
-    @PostConstruct
+    // This method runs after the 'secret' is injected
+    @jakarta.annotation.PostConstruct
     public void init() {
-        if (secret.length() < 32) {
-            throw new IllegalArgumentException("JWT secret must be at least 256 bits (32 chars)");
-        }
+        // Creates a proper, secure key from your secret string
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    private Claims extractAllClaims(String token) {
+    public Claims extractClaims(String token) {
         return Jwts.parser()
-                .verifyWith(key)
+                .verifyWith(key) // Use the secure key
                 .build()
-                .parseSignedClaims(token)
+                .parseSignedClaims(token) // This is the new, correct method
                 .getPayload();
     }
 
-    // FIXED: Valid method name
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
+        final Claims claims = extractClaims(token);
         return claimsResolver.apply(claims);
     }
 
@@ -46,17 +42,10 @@ public class JwtUtil {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public Date getExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public boolean isTokenExpired(String token) {
-        return getExpiration(token).before(new Date());
-    }
-
     public boolean validateToken(String token) {
         try {
-            return !isTokenExpired(token);
+            extractClaims(token);
+            return true;
         } catch (Exception e) {
             return false;
         }
@@ -64,10 +53,10 @@ public class JwtUtil {
 
     public String generateToken(String username) {
         return Jwts.builder()
-                .subject(username)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 86_400_000))
-                .signWith(key)
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 24 hours
+                .signWith(key) // Use the secure key
                 .compact();
     }
 }

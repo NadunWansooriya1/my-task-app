@@ -1,7 +1,9 @@
-// src/main/java/com/example/todo_api/model/Task.java
 package com.example.todo_api.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -11,24 +13,12 @@ import java.time.LocalDate;
 public class Task {
     @Id @GeneratedValue
     private Long id;
-
-    @Column(nullable = false)
     private String title;
-
-    private boolean completed = false;
-
-    @Column(nullable = false)
-    private String userId; // Stores username from JWT
-
-    @Column(nullable = false)
+    private boolean completed;
+    private String userId;
     private LocalDate taskDate;
-
-    @Column(length = 500)
+    @Column(length = 500) // Matches frontend maxLength
     private String description;
-
-    @Column(nullable = false)
-    private String priority = "medium";
-
-    @Column(nullable = false)
-    private String category = "Other";
+    private String priority; // low, medium, high
+    private String category; // Work, Personal, Shopping, Health, Learning, Other
 }

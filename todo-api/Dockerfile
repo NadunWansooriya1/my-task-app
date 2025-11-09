@@ -1,34 +1,30 @@
-# ==============================
-# Stage 1: Build JAR (Maven + JDK)
-# ==============================
-FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+# Stage 1: Build the application
+# This stage uses a full Maven and JDK image to build your .jar file
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
-# Cache dependencies
+# Copy pom.xml and download dependencies
+# This is done first to cache the dependencies
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy source + build
+# Copy the rest of the source code and build the JAR
 COPY src ./src
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -DskipTests
 
-# ==============================
-# Stage 2: Runtime (JRE only)
-# ==============================
-FROM eclipse-temurin:21-jre-alpine
+# Stage 2: Create the final, small image
+# This stage uses a lightweight Java Runtime image
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Install curl for healthcheck
+# Install curl (used by the health check in docker-compose.yml)
 RUN apk add --no-cache curl
 
-# Copy JAR
+# Copy the built JAR from the builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Security: non-root user
-USER 1001
-
+# Expose the port Spring Boot runs on
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
 
+# Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
