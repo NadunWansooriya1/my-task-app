@@ -64,7 +64,7 @@ import { toast } from 'react-toastify';
 import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 import dayjs, { Dayjs } from 'dayjs';
 import { CSVLink } from 'react-csv';
-import { API_ENDPOINTS } from './config'; // <-- 1. ADD THIS IMPORT
+import { API_BASE_URL, API_ENDPOINTS } from './config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types & Interfaces
@@ -133,8 +133,7 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     const apiClient = useMemo(() => {
       if (!token) return null;
       return axios.create({
-        // 2. USE THE CONFIG VARIABLE INSTEAD OF A HARDCODED STRING
-        baseURL: API_ENDPOINTS.TASKS.replace('/tasks', ''),
+        baseURL: API_BASE_URL,
         headers: { Authorization: `Bearer ${token}` },
       });
     }, [token]);
