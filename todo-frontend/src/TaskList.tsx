@@ -173,11 +173,15 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
             apiClient.get<Analytics>('/tasks/analytics', { params: { date }, signal: controller.signal }),
             apiClient.get<string[]>('/tasks/pending-dates', { signal: controller.signal }),
           ]);
-          setTasks(tasksRes.data);
+          
+          // Ensure tasksRes.data is an array
+          const taskData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+          setTasks(taskData);
+          
           const desc: Record<number, string> = {};
           const prior: Record<number, string> = {};
           const categ: Record<number, string> = {};
-          tasksRes.data.forEach((t) => {
+          taskData.forEach((t) => {
             desc[t.id] = t.description ?? '';
             prior[t.id] = t.priority ?? 'medium';
             categ[t.id] = t.category ?? 'Other';
@@ -186,7 +190,7 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
           setPriorityEdits(prior);
           setCategoryEdits(categ);
           setAnalytics(analyticsRes.data);
-          setPendingDates(pendingRes.data);
+          setPendingDates(Array.isArray(pendingRes.data) ? pendingRes.data : []);
         } catch (err) {
           if (!axios.isCancel(err)) {
             setError(handleError(err, `Fetch failed for ${selectedDate.format('MMM D')}`));
