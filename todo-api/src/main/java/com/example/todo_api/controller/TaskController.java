@@ -42,6 +42,12 @@ public class TaskController {
         if (updatedTask.getDescription() != null) {
             task.setDescription(updatedTask.getDescription());
         }
+        if (updatedTask.getPriority() != null) {
+            task.setPriority(updatedTask.getPriority());
+        }
+        if (updatedTask.getCategory() != null) {
+            task.setCategory(updatedTask.getCategory());
+        }
         // Special check for boolean
         if (updatedTask.isCompleted() != task.isCompleted()) {
             task.setCompleted(updatedTask.isCompleted());
