@@ -133,7 +133,7 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     const apiClient = useMemo(() => {
       if (!token) return null;
       return axios.create({
-        baseURL: API_BASE_URL,
+        baseURL: `${API_BASE_URL}/api`,
         headers: { Authorization: `Bearer ${token}` },
       });
     }, [token]);
