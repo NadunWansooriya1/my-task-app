@@ -36,9 +36,19 @@ jobs:
             # Navigate to app directory
             cd $HOME/my-task-app
           
-            # Pull latest code
+            # Stash any local changes
+            echo "Stashing local changes..."
+            git stash || true
+          
+            # Switch to main branch
+            echo "Switching to main branch..."
+            git checkout main
+          
+            # Force pull latest code (overwrite local changes)
             echo "Pulling latest code..."
-            git pull origin main
+            git fetch --all
+            git reset --hard origin/main
+            git clean -fd
           
             # Stop containers
             echo "Stopping containers..."
