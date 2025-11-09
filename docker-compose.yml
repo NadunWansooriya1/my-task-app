@@ -1,19 +1,16 @@
 version: '3.9'
 
 services:
-  # ──────────────────────────────────────
-  # 1. PostgreSQL (Healthy & Persistent)
-  # ──────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: postgres-db
+    container_name: postgres
     restart: always
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: taskdb
     ports:
-      - "5432:5432"  # Only for local dev/debug
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -22,18 +19,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
     networks:
       - app-network
 
-  # ──────────────────────────────────────
-  # 2. Spring Boot Backend (JWT + Actuator)
-  # ──────────────────────────────────────
   backend:
     build:
       context: ./todo-api
       dockerfile: Dockerfile
-    container_name: todo-api
+    container_name: backend
     restart: always
     ports:
       - "8080:8080"
@@ -41,46 +34,32 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taskdb
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
-      # NEVER hardcode in prod — use secrets or .env
-      JWT_SECRET: ${JWT_SECRET:-your-super-secure-256-bit-key-change-in-prod-123}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
     networks:
       - app-network
 
-  # ──────────────────────────────────────
-  # 3. React Frontend (Nginx + HTTPS-ready)
-  # ──────────────────────────────────────
   frontend:
     build:
       context: ./todo-frontend
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: /api
-    container_name: todo-frontend
+    container_name: frontend
     restart: always
     ports:
       - "3000:80"
+    shm_size: '2gb'
     depends_on:
       - backend
     networks:
       - app-network
 
-# ──────────────────────────────────────
-# Volumes & Networks
-# ──────────────────────────────────────
 volumes:
   postgres_data:
-    driver: local
 
 networks:
   app-network:
     driver: bridge
-    name: todo-app-network
