@@ -5,18 +5,16 @@ const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
+    const port = window.location.port;
     
-    // If accessing via domain
-    if (hostname === 'task-vm.nadunwansooriya.online') {
-      return `${protocol}//task-vm.nadunwansooriya.online:8080`;
+    // If accessing via domain or IP (production), use relative URL
+    // This allows nginx to proxy /api to backend, avoiding HTTPS mixed content issues
+    if (hostname === 'task-vm.nadunwansooriya.online' || hostname === '104.154.52.39') {
+      // Use current origin (works for both HTTP and HTTPS)
+      return `${protocol}//${hostname}${port ? ':' + port : ''}`;
     }
     
-    // If accessing via IP
-    if (hostname === '104.154.52.39') {
-      return 'http://104.154.52.39:8080';
-    }
-    
-    // If accessing via localhost
+    // If accessing via localhost (development)
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8080';
     }
