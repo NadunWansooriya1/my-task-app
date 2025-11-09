@@ -10,8 +10,10 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(
-                        "https://task-app-vm.nadunwansooriya.online", // New domain
-                        "https://task-vm.nadunwansooriya.online",
+                        "http://104.154.52.39:3000",
+                        "http://task-vm.nadunwansooriya.online:3000",
+                        "http://task-vm.nadunwansooriya.online",
+                        "http://104.154.52.39",
                         "http://localhost:3000"       // For local testing
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
