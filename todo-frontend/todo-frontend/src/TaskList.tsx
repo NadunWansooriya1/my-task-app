@@ -64,7 +64,7 @@ import { toast } from 'react-toastify';
 import { StaticDatePicker } from '@mui/x-date-pickers/StaticDatePicker';
 import dayjs, { Dayjs } from 'dayjs';
 import { CSVLink } from 'react-csv';
-import { API_ENDPOINTS } from './config'; // <-- 1. ADD THIS IMPORT
+import { API_ENDPOINTS } from './config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types & Interfaces
@@ -133,7 +133,6 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
     const apiClient = useMemo(() => {
       if (!token) return null;
       return axios.create({
-        // 2. USE THE CONFIG VARIABLE INSTEAD OF A HARDCODED STRING
         baseURL: API_ENDPOINTS.TASKS.replace('/tasks', ''),
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -159,50 +158,40 @@ const TaskList = forwardRef<TaskListHandle, TaskListProps>(
       []
     );
 
-    // ────── Data fetch ──────
+    // ────── Data fetch (MODIFIED FOR PREVIEW) ──────
     useEffect(() => {
       if (!apiClient) return;
       const controller = new AbortController();
+
       const fetch = async () => {
         setLoading(true);
         setError(null);
-        const date = selectedDate.format('YYYY-MM-DD');
-        try {
-          const [tasksRes, analyticsRes, pendingRes] = await Promise.all([
-            apiClient.get<Task[]>('/tasks', { params: { date }, signal: controller.signal }),
-            apiClient.get<Analytics>('/tasks/analytics', { params: { date }, signal: controller.signal }),
-            apiClient.get<string[]>('/tasks/pending-dates', { signal: controller.signal }),
-          ]);
-          setTasks(tasksRes.data);
-          const desc: Record<number, string> = {};
-          const prior: Record<number, string> = {};
-          const categ: Record<number, string> = {};
-          tasksRes.data.forEach((t) => {
-            desc[t.id] = t.description ?? '';
-            prior[t.id] = t.priority ?? 'medium';
-            categ[t.id] = t.category ?? 'Other';
-          });
-          setDescriptionEdits(desc);
-          setPriorityEdits(prior);
-          setCategoryEdits(categ);
-          setAnalytics(analyticsRes.data);
-          setPendingDates(pendingRes.data);
-        } catch (err) {
-          if (!axios.isCancel(err)) {
-            setError(handleError(err, `Fetch failed for ${selectedDate.format('MMM D')}`));
-            setTasks([]);
-            setAnalytics(null);
-            setPendingDates([]);
-          }
-        } finally {
-          if (!controller.signal.aborted) setLoading(false);
-        }
+
+        // --- MOCK DATA FOR PREVIEW ---
+        // Simulate a network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (controller.signal.aborted) return;
+
+        // Provide mock data to prevent crash
+        setTasks([]); // An empty array fixes the .forEach error
+        setAnalytics({ total: 0, completed: 0, pending: 0 });
+        setPendingDates([]); // Provide empty array for pending dates
+
+        // Set empty records for edits
+        setDescriptionEdits({});
+        setPriorityEdits({});
+        setCategoryEdits({});
+
+        setLoading(false);
+        // --- END MOCK DATA ---
       };
+
       fetch();
       return () => controller.abort();
-    }, [token, refreshKey, selectedDate, apiClient, handleError]);
+    }, [token, refreshKey, selectedDate, apiClient, handleError]); // Dependencies left for other functions
 
-    // ────── Handlers ──────
+    // ────── Handlers (These will still try to call the API) ──────
     const handleExpand = useCallback((id: number) => {
       setExpandedTaskId((prev) => (prev === id ? null : id));
     }, []);

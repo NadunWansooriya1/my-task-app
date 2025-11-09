@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: taskdb
+    ports:
+      - "5432:5432" # Exposes DB to host (for debugging)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d taskdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # 2. Spring Boot Backend
+  backend:
+    build:
+      context: ./todo-api  # Path to your Spring Boot app
+      dockerfile: Dockerfile
+    container_name: backend
+    restart: always
+    ports:
+      - "8080:8080" # Exposes Spring Boot port
+    environment:
+      # Connects to the 'postgres' service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taskdb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      JWT_SECRET: "your-super-strong-production-secret-key-change-this"
+    depends_on:
+      postgres:
+        condition: service_healthy # Waits for DB to be ready
+    networks:
+      - app-network
+    healthcheck:
+      # Uses the Actuator endpoint you added
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # 3. React Frontend
+  frontend:
+    build:
+      context: ./todo-frontend # Path to your React app
+      dockerfile: Dockerfile
+      args:
+        # Passes the production API URL to the React build
+        REACT_APP_API_URL: https://task-vm.nadunwansooriya.online
+    container_name: frontend
+    restart: always
+    ports:
+      - "3000:80" # User visits port 3000, Nginx serves on port 80
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  postgres_data: # This volume persists your database data
+
+networks:
+  app-network:
+    driver: bridge
