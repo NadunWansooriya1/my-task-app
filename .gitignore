@@ -185,6 +185,21 @@ secrets.yml
 credentials.yml
 
 ############################
+# Documentation (unwanted MD files)
+############################
+
+# Exclude temporary/test documentation
+FIXES_APPLIED.md
+TEST_RESULTS.md
+VM_DB_CHECK_COMMANDS.md
+QUICK_TEST_GUIDE.md
+*_GUIDE.md
+*_RESULTS.md
+TODO.md
+NOTES.md
+CHANGES.md
+
+############################
 # Misc
 ############################
 
