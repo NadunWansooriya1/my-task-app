@@ -41,14 +41,7 @@ buildNumber.properties
 *.md
 
 # Allow essential documentation to remain tracked
-!README.md
-!ARCHITECTURE.md
-!DEPLOYMENT_GUIDE.md
-!SETUP_GUIDE.md
-!QUICK_START.md
-!todo-frontend/README.md
-!todo-api/README.md
-!.mvn/wrapper/maven-wrapper.properties
+
 
 # Spring Boot
 spring-boot-starter-parent/
@@ -201,19 +194,29 @@ secrets.yml
 credentials.yml
 
 ############################
-# Documentation (unwanted MD files)
+# Additional Documentation Ignore Overrides
 ############################
 
-# Exclude temporary/test documentation
+# Ignore specific non-essential markdowns (if they appear) AFTER whitelisting core docs above.
 FIXES_APPLIED.md
 TEST_RESULTS.md
 VM_DB_CHECK_COMMANDS.md
 QUICK_TEST_GUIDE.md
-*_GUIDE.md
 *_RESULTS.md
 TODO.md
 NOTES.md
 CHANGES.md
+
+# Re-assert whitelist (patterns below must NOT re-ignore these)
+!README.md
+ARCHITECTURE.md
+DEPLOYMENT_GUIDE.md
+SETUP_GUIDE.md
+QUICK_START.md
+!todo-frontend/README.md
+!todo-api/README.md
+VM_DEPLOYMENT_GUIDE.md
+SETUP_GUIDE.md
 
 ############################
 # Misc
@@ -234,3 +237,21 @@ CHANGES.md
 *_BASE_*.txt
 *_LOCAL_*.txt
 *_REMOTE_*.txt
+*.rej
+*.patch
+
+############################
+# Build / Artifacts fine-tuning
+############################
+
+# Ignore any stray packaged JARs outside target (avoid accidental commits)
+*.jar
+!todo-api/target/*.jar
+
+############################
+# Misc improvements
+############################
+# Ignore editor config backups
+*.bak~
+*.tmp.*
+
