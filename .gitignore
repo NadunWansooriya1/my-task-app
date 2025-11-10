@@ -32,6 +32,22 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
+
+############################
+# Markdown Documentation
+############################
+
+# Ignore all markdown files by default
+*.md
+
+# Allow essential documentation to remain tracked
+!README.md
+!ARCHITECTURE.md
+!DEPLOYMENT_GUIDE.md
+!SETUP_GUIDE.md
+!QUICK_START.md
+!todo-frontend/README.md
+!todo-api/README.md
 !.mvn/wrapper/maven-wrapper.properties
 
 # Spring Boot
