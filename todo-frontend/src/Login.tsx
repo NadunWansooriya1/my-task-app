@@ -575,14 +575,19 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               <Typography
                 variant="caption"
                 sx={{
-                  color: '#64748b',
-                  fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                  color: '#94a3b8',
+                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
                   fontWeight: 400,
                   display: 'block',
-                  fontStyle: 'italic',
                 }}
               >
-                {/* Demo: Username: <Box component="span" sx={{ color: '#94a3b8', fontWeight: 500 }}>admin</Box> | Password: <Box component="span" sx={{ color: '#94a3b8', fontWeight: 500 }}>pass</Box> */}
+                <Box component="span" sx={{ display: 'block', color: '#a7f3d0', fontWeight: 600, mb: 0.5 }}>
+                  Demo Users Only
+                </Box>
+                <Box component="span" sx={{ color: '#cbd5e1', fontWeight: 500 }}>
+                  Username: <Box component="span" sx={{ color: '#e2e8f0', fontWeight: 600 }}>admin</Box> |
+                  {' '}Password: <Box component="span" sx={{ color: '#e2e8f0', fontWeight: 600 }}>pass</Box>
+                </Box>
               </Typography>
             </Box>
           )}
