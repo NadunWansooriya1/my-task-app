@@ -10,6 +10,19 @@ env:
   VM_HOST: 104.154.52.39
   APP_DIR: /home/nadun_wansooriya/my-task-app
 
+
+
+# env:
+#   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+#   REGION: us-central1
+#   REPO: danushka-ar
+#   IMAGE_TAG: latest
+#   CLUSTER: ${{ secrets.CLUSTER_NAME }}
+#   CLUSTER_ZONE: ${{ secrets.CLUSTER_ZONE }}
+#   VM_USER: ${{ secrets.VM_USERNAME }}
+#   VM_NAME: ${{ secrets.GCP_VM_INSTANCE_NAME }}
+#   VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
+
 jobs:
   deploy:
     name: Deploy to VM
@@ -19,12 +32,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
+      # - name: Setup SSH
+      #   run: |
+      #     mkdir -p ~/.ssh
+      #     echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+      #     chmod 600 ~/.ssh/id_rsa
+      #     ssh-keyscan -H ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to VM
         run: |
