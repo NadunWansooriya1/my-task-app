@@ -38,59 +38,59 @@ jobs:
 
       - name: Deploy to VM
         run: |
-          # gcloud compute ssh ${{ env.VM_USER }}@${{ env.GCP_VM_INSTANCE }} \
-          #   --zone=${{ env.GCP_ZONE }} \
-          #   --command='bash -s' << 'ENDSSH'
-          #   set -e
+          gcloud compute ssh ${{ env.VM_USER }}@${{ env.GCP_VM_INSTANCE }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command='bash -s' << 'ENDSSH'
+          set -e
           
-            echo "==== Starting Deployment ===="
+          echo "==== Starting Deployment ===="
           
-            # Navigate to app directory
-            cd $HOME/my-task-app
+          # Navigate to app directory
+          cd ${{ env.APP_DIR }}
           
-            # Stash any local changes
-            echo "Stashing local changes..."
-            git stash || true
+          # Stash any local changes
+          echo "Stashing local changes..."
+          git stash || true
           
-            # Switch to main branch
-            echo "Switching to main branch..."
-            git checkout main
+          # Switch to main branch
+          echo "Switching to main branch..."
+          git checkout main
           
-            # Force pull latest code (overwrite local changes)
-            echo "Pulling latest code..."
-            git fetch --all
-            git reset --hard origin/main
-            git clean -fd
+          # Force pull latest code (overwrite local changes)
+          echo "Pulling latest code..."
+          git fetch --all
+          git reset --hard origin/main
+          git clean -fd
           
-            # Stop containers
-            echo "Stopping containers..."
-            docker compose down
+          # Stop containers
+          echo "Stopping containers..."
+          docker compose down
           
-            # Remove old images
-            echo "Removing old images..."
-            docker rmi my-task-app-backend my-task-app-frontend 2>/dev/null || true
+          # Remove old images
+          echo "Removing old images..."
+          docker rmi my-task-app-backend my-task-app-frontend 2>/dev/null || true
           
-            # Rebuild and start
-            echo "Building and starting containers..."
-            docker compose up -d --build
+          # Rebuild and start
+          echo "Building and starting containers..."
+          docker compose up -d --build
           
-            # Wait for services to be healthy
-            echo "Waiting for services to start..."
-            sleep 45
+          # Wait for services to be healthy
+          echo "Waiting for services to start..."
+          sleep 45
           
-            # Check status
-            echo "Checking container status..."
-            docker compose ps
+          # Check status
+          echo "Checking container status..."
+          docker compose ps
           
-            # Verify backend
-            echo "Verifying backend..."
-            curl -f http://localhost:8080/actuator/health || echo "Backend health check failed!"
+          # Verify backend
+          echo "Verifying backend..."
+          curl -f http://localhost:8080/actuator/health || echo "Backend health check failed!"
           
-            # Clean up old images
-            echo "Cleaning up..."
-            docker image prune -f
+          # Clean up old images
+          echo "Cleaning up..."
+          docker image prune -f
           
-            echo "==== Deployment Complete ===="
+          echo "==== Deployment Complete ===="
           ENDSSH
 
       - name: Deployment Status
