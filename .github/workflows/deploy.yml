@@ -38,10 +38,10 @@ jobs:
 
       - name: Deploy to VM
         run: |
-          gcloud compute ssh ${{ env.VM_USER }}@${{ env.GCP_VM_INSTANCE }} \
-            --zone=${{ env.GCP_ZONE }} \
-            --command='bash -s' << 'ENDSSH'
-            set -e
+          # gcloud compute ssh ${{ env.VM_USER }}@${{ env.GCP_VM_INSTANCE }} \
+          #   --zone=${{ env.GCP_ZONE }} \
+          #   --command='bash -s' << 'ENDSSH'
+          #   set -e
           
             echo "==== Starting Deployment ===="
           
