@@ -28,7 +28,7 @@ A full-stack task management application with JWT authentication, built with Spr
 ./deploy.sh
 ```
 
-### Manual Deployment
+### Manual Deployment 
 
 ```bash
 # Stop existing containers
