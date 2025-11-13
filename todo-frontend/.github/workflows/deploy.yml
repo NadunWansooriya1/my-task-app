@@ -6,22 +6,11 @@ on:
   workflow_dispatch:
 
 env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_VM_INSTANCE: ${{ secrets.GCP_VM_INSTANCE_NAME }}
+  GCP_ZONE: ${{ secrets.GCP_VM_ZONE }}
   VM_USER: nadun_wansooriya
-  VM_HOST: 104.154.52.39
   APP_DIR: /home/nadun_wansooriya/my-task-app
-
-
-
-# env:
-#   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-#   REGION: us-central1
-#   REPO: danushka-ar
-#   IMAGE_TAG: latest
-#   CLUSTER: ${{ secrets.CLUSTER_NAME }}
-#   CLUSTER_ZONE: ${{ secrets.CLUSTER_ZONE }}
-#   VM_USER: ${{ secrets.VM_USERNAME }}
-#   VM_NAME: ${{ secrets.GCP_VM_INSTANCE_NAME }}
-#   VM_ZONE: ${{ secrets.GCP_VM_ZONE }}
 
 jobs:
   deploy:
@@ -32,16 +21,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # - name: Setup SSH
-      #   run: |
-      #     mkdir -p ~/.ssh
-      #     echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-      #     chmod 600 ~/.ssh/id_rsa
-      #     ssh-keyscan -H ${{ env.VM_HOST }} >> ~/.ssh/known_hosts
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure gcloud
+        run: |
+          gcloud config set project ${{ env.GCP_PROJECT_ID }}
+          gcloud config set compute/zone ${{ env.GCP_ZONE }}
 
       - name: Deploy to VM
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ env.VM_USER }}@${{ env.VM_HOST }} << 'ENDSSH'
+          gcloud compute ssh ${{ env.VM_USER }}@${{ env.GCP_VM_INSTANCE }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command='bash -s' << 'ENDSSH'
             set -e
           
             echo "==== Starting Deployment ===="
@@ -86,6 +85,7 @@ jobs:
 
       - name: Deployment Status
         run: |
+          VM_IP=$(gcloud compute instances describe ${{ env.GCP_VM_INSTANCE }} --zone=${{ env.GCP_ZONE }} --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
           echo "✅ Deployment completed successfully!"
-          echo "🌐 Frontend: http://${{ env.VM_HOST }}:3000"
-          echo "🔧 Backend: http://${{ env.VM_HOST }}:8080"
+          echo "🌐 Frontend: http://${VM_IP}:3000"
+          echo "🔧 Backend: http://${VM_IP}:8080"
